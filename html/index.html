@@ -1,0 +1,348 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>AZ Tow Dispatch</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Montserrat:wght@300;400;500;600&display=swap');
+
+        :root {
+            --sadot-primary: #0a2c4e;
+            --sadot-secondary: #1a4a7a;
+            --sadot-accent: #ff9900;
+            --sadot-accent-dark: #e68900;
+            --sadot-light: #e6f2ff;
+            --sadot-dark: #051a2d;
+            --sadot-success: #2ecc71;
+            --sadot-danger: #e74c3c;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Montserrat', sans-serif; background: transparent; overflow: hidden; color: var(--sadot-light); }
+        .hidden { display: none !important; }
+
+        /* dispatch center card (your existing UI) */
+        #dispatch {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9998;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+        }
+        .card {
+            background: linear-gradient(145deg, var(--sadot-primary), var(--sadot-dark));
+            color: var(--sadot-light);
+            padding: 28px;
+            border-radius: 12px;
+            width: 420px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(255, 153, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--sadot-accent), var(--sadot-secondary)); }
+        .card-header { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .card-header h2 { font-family: 'Orbitron', sans-serif; font-weight:700; font-size:24px; letter-spacing:1px; margin:0; background: linear-gradient(90deg, var(--sadot-light), var(--sadot-accent)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .card-icon { margin-right:12px; color:var(--sadot-accent); font-size:24px; }
+        .info-group { margin-bottom:18px; padding:12px 15px; background: rgba(10,44,78,0.5); border-radius:8px; border-left:3px solid var(--sadot-accent); }
+        .info-label { font-size:12px; text-transform:uppercase; letter-spacing:1px; color: rgba(230,242,255,0.7); margin-bottom:5px; font-weight:600; }
+        .info-value { font-size:16px; font-weight:500; color:var(--sadot-light); word-break:break-word; }
+        .actions { display:flex; justify-content:space-between; margin-top:25px; gap:15px; }
+        button { padding:12px 20px; border:none; border-radius:6px; cursor:pointer; font-family:'Montserrat',sans-serif; font-weight:600; font-size:14px; letter-spacing:0.5px; transition:all 0.3s ease; flex:1; display:flex; align-items:center; justify-content:center; gap:8px; }
+        #accept { background: linear-gradient(145deg, var(--sadot-success), #27ae60); color:white; box-shadow:0 4px 15px rgba(46,204,113,0.3); }
+        #accept:hover { background: linear-gradient(145deg, #27ae60, var(--sadot-success)); transform: translateY(-2px); box-shadow:0 6px 20px rgba(46,204,113,0.4); }
+        #decline { background: linear-gradient(145deg, var(--sadot-danger), #c0392b); color:white; box-shadow:0 4px 15px rgba(231,76,60,0.3); }
+        #decline:hover { background: linear-gradient(145deg, #c0392b, var(--sadot-danger)); transform: translateY(-2px); box-shadow:0 6px 20px rgba(231,76,60,0.4); }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(255,153,0,0.4);} 70% { box-shadow:0 0 0 10px rgba(255,153,0,0);} 100% { box-shadow:0 0 0 0 rgba(255,153,0,0);} }
+        .footer-note { text-align:center; margin-top:15px; font-size:11px; color: rgba(230,242,255,0.5); letter-spacing:0.5px; }
+
+        /* DIALOG notification (bottom-right small card) */
+        #dialog-notif {
+            position: absolute;
+            right: 24px;
+            bottom: 24px;
+            z-index: 10000;
+            width: 340px;
+            pointer-events: none; /* non-interactive overlay so game controls remain active */
+        }
+        .dialog-card {
+            background: linear-gradient(145deg, rgba(10,44,78,0.95), rgba(5,26,45,0.95));
+            color: var(--sadot-light);
+            padding: 14px 16px;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,153,0,0.18);
+            overflow: hidden;
+            transform-origin: bottom right;
+        }
+        .dialog-header { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+        .dialog-header .dot { width:10px; height:10px; border-radius:50%; background:var(--sadot-accent); box-shadow:0 0 10px rgba(255,153,0,0.25); }
+        .dialog-caller { font-weight:700; font-size:13px; font-family:'Orbitron',sans-serif; }
+        .dialog-lines { font-size:14px; margin-top:6px; min-height:36px; line-height:1.35; }
+        .dialog-line { opacity:0; transform: translateY(6px); transition: all 0.28s cubic-bezier(.2,.9,.3,1); }
+        .dialog-line.visible { opacity:1; transform: translateY(0); }
+
+        /* small toast (top-right) */
+        #toast-wrapper { position: absolute; right: 24px; top: 24px; z-index: 10001; pointer-events: none; }
+        .toast {
+            background: rgba(0,0,0,0.6);
+            color: var(--sadot-light);
+            padding: 10px 12px;
+            border-radius: 8px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.03);
+            transform-origin: top right;
+            opacity: 0;
+            transition: all 0.25s ease;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+
+        /* subtle type effect for dialog text (optional) */
+        .typing { display:inline-block; }
+    </style>
+</head>
+<body>
+    <!-- Force hidden inline to prevent CEF flash -->
+    <div id="dispatch" style="display: none !important;" class="hidden">
+        <div class="card pulse">
+            <div class="card-header">
+                <div class="card-icon">🚨</div>
+                <h2>TOW DISPATCH</h2>
+            </div>
+
+            <div class="info-group">
+                <div class="info-label">Caller Information</div>
+                <div class="info-value" id="caller">-</div>
+            </div>
+
+            <div class="info-group">
+                <div class="info-label">Service Request</div>
+                <div class="info-value" id="message">-</div>
+            </div>
+
+            <div class="info-group">
+                <div class="info-label">Location Coordinates</div>
+                <div class="info-value" id="coords">-</div>
+            </div>
+
+            <div class="actions">
+                <button id="accept"><span>✓</span> ACCEPT CALL</button>
+                <button id="decline"><span>✕</span> DECLINE</button>
+            </div>
+
+            <div class="footer-note">Press ESC to close this dispatch</div>
+        </div>
+    </div>
+
+    <!-- Dialog notification -->
+    <div id="dialog-notif" class="hidden" aria-hidden="true">
+        <div class="dialog-card" id="dialog-card">
+            <div class="dialog-header">
+                <div class="dot"></div>
+                <div class="dialog-caller" id="dialog-caller">Driver</div>
+            </div>
+            <div class="dialog-lines" id="dialog-lines">
+                <!-- lines injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast-wrapper"></div>
+
+    <script>
+    (function(){
+        // initial guards
+        try {
+            const dispatch = document.getElementById('dispatch');
+            if (dispatch) {
+                dispatch.style.display = 'none';
+                dispatch.classList.add('hidden');
+            }
+            const d = document.getElementById('dialog-notif');
+            if (d) { d.style.display = 'none'; d.classList.add('hidden'); }
+        } catch (e){ console.error(e); }
+
+        /* ---------- Dispatch (existing) ---------- */
+        function showCall(call){
+            if (!call) return;
+            document.getElementById('caller').innerText = call.callerName || 'Unknown';
+            document.getElementById('message').innerText = call.message || 'No details provided';
+
+            var coordsText = '';
+            if (call.coords) {
+                coordsText = (call.coords.x || '') + ', ' + (call.coords.y || '');
+            } else {
+                coordsText = 'Coordinates unavailable';
+            }
+            document.getElementById('coords').innerText = coordsText;
+
+            var dispatch = document.getElementById('dispatch');
+            if (!dispatch) return;
+            dispatch.classList.remove('hidden');
+            dispatch.style.display = 'flex';
+            document.getElementById('accept').dataset.callId = call.id || '';
+
+            const card = document.querySelector('.card');
+            card.style.transform = 'scale(0.9)';
+            card.style.opacity = '0';
+            setTimeout(() => {
+                card.style.transition = 'all 0.3s ease';
+                card.style.transform = 'scale(1)';
+                card.style.opacity = '1';
+            }, 10);
+        }
+
+        function hideCall(){
+            const dispatch = document.getElementById('dispatch');
+            if (!dispatch) return;
+            const card = document.querySelector('.card');
+            card.style.transition = 'all 0.2s ease';
+            card.style.transform = 'scale(0.9)';
+            card.style.opacity = '0';
+            setTimeout(() => {
+                dispatch.classList.add('hidden');
+                dispatch.style.display = 'none';
+                document.getElementById('accept').dataset.callId = '';
+            }, 200);
+        }
+
+        /* ---------- Dialog notification ---------- */
+        let dialogTimeoutHandle = null;
+        function showDialog(payload){
+            if (!payload || !payload.lines || payload.lines.length === 0) return;
+            // keep pointer-events off so the game still receives input
+            const wrapper = document.getElementById('dialog-notif');
+            const callerEl = document.getElementById('dialog-caller');
+            const linesEl = document.getElementById('dialog-lines');
+
+            callerEl.innerText = payload.caller || 'Driver';
+            linesEl.innerHTML = '';
+
+            // create line elements (hidden) and animate sequentially
+            payload.lines.forEach((ln, idx) => {
+                const div = document.createElement('div');
+                div.className = 'dialog-line';
+                // wrap in span to allow subtle typing if desired
+                const span = document.createElement('span');
+                span.className = 'typing';
+                span.innerText = ln;
+                div.appendChild(span);
+                linesEl.appendChild(div);
+            });
+
+            // show wrapper
+            wrapper.classList.remove('hidden');
+            wrapper.style.display = 'block';
+            const card = document.getElementById('dialog-card');
+            card.style.transform = 'scale(0.96)';
+            card.style.opacity = '0';
+            setTimeout(()=>{ card.style.transition='all 0.18s ease'; card.style.transform='scale(1)'; card.style.opacity='1'; }, 8);
+
+            // animate each line in sequence
+            const lineEls = Array.from(linesEl.querySelectorAll('.dialog-line'));
+            let cur = 0;
+            const showNext = () => {
+                if (cur >= lineEls.length) {
+                    // schedule hide after short delay
+                    dialogTimeoutHandle = setTimeout(hideDialog, 1600);
+                    // notify game NUI callback (optional)
+                    try { fetch(`https://${GetParentResourceName()}/dialogComplete`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ callId: payload.callId }) }); } catch(e) {}
+                    return;
+                }
+                const el = lineEls[cur];
+                el.classList.add('visible');
+                // display each line for 1400-2000ms depending on length
+                const hold = Math.max(1400, Math.min(3000, (el.innerText.length * 70)));
+                cur = cur + 1;
+                setTimeout(showNext, hold);
+            };
+            showNext();
+        }
+
+        function hideDialog(){
+            const wrapper = document.getElementById('dialog-notif');
+            if (!wrapper) return;
+            const card = document.getElementById('dialog-card');
+            card.style.transition = 'all 0.18s ease';
+            card.style.transform = 'scale(0.96)';
+            card.style.opacity = '0';
+            if (dialogTimeoutHandle) { clearTimeout(dialogTimeoutHandle); }
+            setTimeout(() => {
+                wrapper.classList.add('hidden');
+                wrapper.style.display = 'none';
+                document.getElementById('dialog-lines').innerHTML = '';
+            }, 180);
+        }
+
+        /* ---------- Toast (small ephemeral messages) ---------- */
+        function showToast(msg, duration) {
+            duration = duration;
+            const wrap = document.getElementById('toast-wrapper');
+            const t = document.createElement('div');
+            t.className = 'toast';
+            t.innerText = msg || '';
+            wrap.appendChild(t);
+            // small entrance
+            setTimeout(()=>{ t.classList.add('show'); }, 10);
+            setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>{ try{ t.remove(); }catch(e){} }, 250); }, duration);
+        }
+
+        /* ---------- message handling ---------- */
+        window.addEventListener('message', function(event){
+            const d = event.data;
+            if (!d) return;
+            if (d.action === 'showCall') showCall(d.call || {});
+            if (d.action === 'hideCall') hideCall();
+            if (d.action === 'showDialog') showDialog({ callId: d.callId, caller: d.caller, lines: d.lines || [] });
+            if (d.action === 'hideDialog') hideDialog();
+            if (d.action === 'showToast') showToast(d.message || '', 1600);
+        });
+
+        /* ---------- send NUI -> client callbacks ---------- */
+        function nSend(type, data){
+            try {
+                fetch('https://' + GetParentResourceName() + '/' + type, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                    body: JSON.stringify(data || {})
+                }).catch(function(e){ console.error('nui send error', e); });
+            } catch (e) { console.error('nSend error', e); }
+        }
+
+        document.getElementById('accept').addEventListener('click', function(){
+            var callId = this.dataset.callId || '';
+            nSend('acceptCall', { callId: callId });
+            hideCall();
+        });
+
+        document.getElementById('decline').addEventListener('click', function(){
+            nSend('declineCall', {});
+            hideCall();
+        });
+
+        // ESC for dispatch (still sends decline callback)
+        document.addEventListener('keydown', function(e){
+            var isEscape = (e.key && e.key === 'Escape') || e.keyCode === 27;
+            if (isEscape) {
+                nSend('declineCall', {});
+                hideCall();
+                e.preventDefault && e.preventDefault();
+            }
+        });
+
+        // final guard hides shortly after load
+        setTimeout(function(){ hideCall(); hideDialog(); }, 200);
+        setTimeout(function(){ hideCall(); hideDialog(); }, 600);
+    })();
+    </script>
+</body>
+</html>
